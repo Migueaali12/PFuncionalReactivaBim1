@@ -1,0 +1,110 @@
+//APP
+
+package Semana11;
+
+import java.util.List;
+import java.util.concurrent.SubmissionPublisher;
+import java.util.function.Function;
+
+public class App {
+    public static void main(String[] args) throws InterruptedException {
+        SubmissionPublisher<String> publisher = new SubmissionPublisher<>();
+        //Crear el subscriber
+        PrinterSubscriber printerSubscriber = new PrinterSubscriber();
+
+        //Funcion
+        Function<String, String> toUpper = String :: toUpperCase;
+
+        //Crear Processor
+        TransformProcessor transformProcessor = new TransformProcessor(toUpper);
+
+        //Subscripcion
+        publisher.subscribe(transformProcessor);
+        transformProcessor.subscribe(printerSubscriber);
+
+        List<String> items = List.of("juan", "pedro", "mayra", "ama", "ariel", "miguel");
+
+        //Enviar los datos a los subscriptores
+        items.forEach(publisher::submit);
+
+        Thread.sleep(1*1000);
+
+        publisher.close();
+
+    }
+
+}
+
+//TransforProcessor
+
+package Semana11;
+
+import java.util.concurrent.Flow;
+import java.util.concurrent.SubmissionPublisher;
+import java.util.function.Function;
+
+public class TransformProcessor extends SubmissionPublisher<String>
+        implements Flow.Processor<String, String> {
+    private Flow.Subscription subscription;
+    private Function<String, String> function;
+
+    public TransformProcessor(Function<String, String> function) {
+        this.function = function;
+    }
+
+    @Override
+    public void onSubscribe(Flow.Subscription subscription) {
+        this.subscription = subscription;
+        this.subscription.request(1);
+    }
+
+    @Override
+    public void onNext(String item) {
+        submit(function.apply(item));
+        this.subscription.request(1);
+    }
+
+    @Override
+    public void onError(Throwable throwable) {
+        throwable.printStackTrace();
+    }
+
+    @Override
+    public void onComplete() { close(); }
+}
+
+//PrinterSubscriber
+
+package Semana11;
+
+import java.sql.SQLOutput;
+import java.util.concurrent.Flow;
+
+public class PrinterSubscriber implements Flow.Subscriber<String> {
+
+    private Flow.Subscription subscription;
+
+    @Override
+    public void onSubscribe(Flow.Subscription subscription) {
+        System.out.println("Suscrito");
+        this.subscription = subscription;
+        this.subscription.request(3);
+    }
+
+    @Override
+    public void onNext(String item) {
+        System.out.printf("Valor %s\n", item);
+        this.subscription.request(1);
+    }
+
+    @Override
+    public void onError(Throwable throwable) {
+        throwable.printStackTrace();
+    }
+
+    @Override
+    public void onComplete() {
+        System.out.println("Todo procesado");
+
+    }
+}
